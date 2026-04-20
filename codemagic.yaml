@@ -4,8 +4,7 @@ workflows:
   android-tenant-build:
     name: Android — Tenant Build
     max_build_duration: 30
-    instance_type: linux_x2  # Linux runner (barato, suficiente para Android)
-
+    instance_type: mac_mini_m2
     environment:
       flutter: stable
       vars:
