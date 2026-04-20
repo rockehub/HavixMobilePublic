@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -8,7 +10,7 @@ plugins {
 fun decodeDartDefines(): Map<String, String> {
     val raw = project.findProperty("dart-defines") as String? ?: return emptyMap()
     return raw.split(",").associate { entry ->
-        val decoded = String(java.util.Base64.getDecoder().decode(entry))
+        val decoded = String(Base64.getDecoder().decode(entry))
         val idx = decoded.indexOf('=')
         decoded.substring(0, idx) to decoded.substring(idx + 1)
     }
@@ -29,17 +31,15 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
-        // applicationId is injected per-tenant via --dart-define=BUNDLE_ID_ANDROID=com.client.app
         applicationId = tenantBundleId
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // App name injected via --dart-define=APP_NAME=NomeDaLoja
         resValue("string", "app_name", tenantAppName)
     }
 
