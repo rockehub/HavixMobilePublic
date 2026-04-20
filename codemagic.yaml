@@ -1,0 +1,75 @@
+workflows:
+
+  # ─── Android Build ────────────────────────────────────────────────────────
+  android-tenant-build:
+    name: Android — Tenant Build
+    max_build_duration: 30
+    instance_type: linux_x2  # Linux runner (barato, suficiente para Android)
+
+    environment:
+      flutter: stable
+      # Estas vars são definidas POR TENANT no painel do Codemagic (ou via API)
+      vars:
+        API_BASE_URL: https://api.havix.com        # substituir por tenant
+        TENANT_ID: COLE_O_TENANT_ID_AQUI           # substituir por tenant
+        APP_NAME: Nome da Loja                     # substituir por tenant
+        BUNDLE_ID_ANDROID: com.cliente.loja        # substituir por tenant
+        BUNDLE_ID_IOS: com.cliente.loja            # substituir por tenant
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build Android .aab
+        script: ./scripts/build_android.sh
+
+    artifacts:
+      - build/app/outputs/bundle/release/app-release.aab
+
+    publishing:
+      email:
+        recipients:
+          - COLE_SEU_EMAIL_AQUI
+        notify:
+          success: true
+          failure: true
+
+  # ─── iOS Build ────────────────────────────────────────────────────────────
+  ios-tenant-build:
+    name: iOS — Tenant Build
+    max_build_duration: 60
+    instance_type: mac_mini_m2  # macOS obrigatório para iOS
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        API_BASE_URL: https://api.havix.com
+        TENANT_ID: COLE_O_TENANT_ID_AQUI
+        APP_NAME: Nome da Loja
+        BUNDLE_ID_ANDROID: com.cliente.loja
+        BUNDLE_ID_IOS: com.cliente.loja
+        APPLE_TEAM_ID: COLE_O_TEAM_ID_AQUI       # do Apple Developer Account
+      # Certificados iOS — configurados no painel do Codemagic
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: $BUNDLE_ID_IOS
+
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build iOS .ipa
+        script: ./scripts/build_ios.sh
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+
+    publishing:
+      email:
+        recipients:
+          - COLE_SEU_EMAIL_AQUI
+        notify:
+          success: true
+          failure: true
