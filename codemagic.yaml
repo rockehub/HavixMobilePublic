@@ -8,13 +8,12 @@ workflows:
 
     environment:
       flutter: stable
-      # Estas vars são definidas POR TENANT no painel do Codemagic (ou via API)
       vars:
-        API_BASE_URL: https://api.havix.com        # substituir por tenant
-        TENANT_ID: COLE_O_TENANT_ID_AQUI           # substituir por tenant
-        APP_NAME: Nome da Loja                     # substituir por tenant
-        BUNDLE_ID_ANDROID: com.cliente.loja        # substituir por tenant
-        BUNDLE_ID_IOS: com.cliente.loja            # substituir por tenant
+        API_BASE_URL: https://api.havix.com       
+        TENANT_ID: 82e25f39-b50a-4d9e-9ece-7ac8c7ff6bcc          
+        APP_NAME: Havix                    
+        BUNDLE_ID_ANDROID: com.havix.app       
+        BUNDLE_ID_IOS:  com.havix.app            
 
     scripts:
       - name: Get Flutter packages
@@ -29,7 +28,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - COLE_SEU_EMAIL_AQUI
+          - daniel.moreira.rufino@gmail.com
         notify:
           success: true
           failure: true
@@ -46,8 +45,8 @@ workflows:
       cocoapods: default
       vars:
         API_BASE_URL: https://api.havix.com
-        TENANT_ID: COLE_O_TENANT_ID_AQUI
-        APP_NAME: Nome da Loja
+        TENANT_ID: 82e25f39-b50a-4d9e-9ece-7ac8c7ff6bcc
+        APP_NAME: Havix
         BUNDLE_ID_ANDROID: com.cliente.loja
         BUNDLE_ID_IOS: com.cliente.loja
         APPLE_TEAM_ID: COLE_O_TEAM_ID_AQUI       # do Apple Developer Account
@@ -69,7 +68,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - COLE_SEU_EMAIL_AQUI
+          - daniel.moreira.rufino@gmail.com
         notify:
           success: true
           failure: true
