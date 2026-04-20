@@ -19,7 +19,9 @@ workflows:
         script: flutter pub get
 
       - name: Build Android .aab
-        script: ./scripts/build_android.sh
+        script: |
+          chmod +x scripts/build_android.sh
+          ./scripts/build_android.sh
 
     artifacts:
       - build/app/outputs/bundle/release/app-release.aab
@@ -59,7 +61,9 @@ workflows:
         script: flutter pub get
 
       - name: Build iOS .ipa
-        script: ./scripts/build_ios.sh
+        script: |
+          chmod +x scripts/configure_ios.sh scripts/build_ios.sh
+          ./scripts/build_ios.sh
 
     artifacts:
       - build/ios/ipa/*.ipa
