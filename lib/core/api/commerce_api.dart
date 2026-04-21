@@ -4,91 +4,152 @@ import 'api_client.dart';
 class CommerceApi {
   final _dio = ApiClient().dio;
 
+  // Unwraps CommerceCustomerResponseData<T> envelope: {success, message, data}
+  Map<String, dynamic> _unwrap(dynamic responseData) {
+    if (responseData is Map<String, dynamic>) {
+      final data = responseData['data'];
+      if (data is Map<String, dynamic>) return data;
+    }
+    return {};
+  }
+
+  Future<List<CategorySummary>> getCategories({bool featuredOnly = false}) async {
+    final response = await _dio.get('/api/v1/commerce/categories', queryParameters: {
+      if (featuredOnly) 'featuredOnly': true,
+    });
+    final items = response.data as List<dynamic>? ?? [];
+    return items.map((e) => CategorySummary.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<List<ProductSummary>> getProducts({
     String? category,
     String? search,
     String? sort,
-    int page = 1,
+    int page = 0,
     int limit = 20,
   }) async {
-    final response = await _dio.get('/api/v1/storefront/products', queryParameters: {
+    final response = await _dio.get('/api/v1/commerce/products', queryParameters: {
       if (category != null) 'category': category,
       if (search != null) 'search': search,
       if (sort != null) 'sort': sort,
       'page': page,
-      'limit': limit,
+      'size': limit,
     });
-    final items = response.data['items'] as List<dynamic>? ?? [];
+    // Backend returns Spring Page: {content: [...], totalElements: N, ...}
+    final data = response.data;
+    final items = (data is Map ? data['content'] : data) as List<dynamic>? ?? [];
     return items.map((e) => ProductSummary.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<ProductDetail> getProduct(String slug) async {
-    final response = await _dio.get('/api/v1/storefront/products/$slug');
+    final response = await _dio.get('/api/v1/commerce/products/$slug');
     return ProductDetail.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<Cart> getCart() async {
-    final response = await _dio.get('/api/v1/commerce/cart');
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+    final response = await _dio.get('/api/v1/commerce/cart/current');
+    return Cart.fromJson(_unwrap(response.data));
   }
 
-  Future<Cart> addToCart(String variantId, int qty) async {
+  Future<Cart> addToCart(String? variantId, int qty, {String? productId}) async {
     final response = await _dio.post('/api/v1/commerce/cart/items', data: {
-      'variantId': variantId,
+      if (productId != null && productId.isNotEmpty) 'productId': productId,
+      if (variantId != null && variantId.isNotEmpty) 'variantId': variantId,
       'quantity': qty,
     });
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+    return Cart.fromJson(_unwrap(response.data));
   }
 
-  Future<Cart> updateCartItem(String lineId, int qty) async {
-    final response = await _dio.put('/api/v1/commerce/cart/items/$lineId', data: {'quantity': qty});
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+  Future<Cart> updateCartItem(String entryId, int qty) async {
+    final response = await _dio.patch('/api/v1/commerce/cart/items/$entryId', data: {
+      'quantity': qty,
+    });
+    return Cart.fromJson(_unwrap(response.data));
   }
 
-  Future<Cart> removeCartItem(String lineId) async {
-    final response = await _dio.delete('/api/v1/commerce/cart/items/$lineId');
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+  Future<Cart> removeCartItem(String entryId) async {
+    final response = await _dio.delete('/api/v1/commerce/cart/items/$entryId');
+    return Cart.fromJson(_unwrap(response.data));
   }
 
   Future<Cart> applyDiscount(String code) async {
-    final response = await _dio.post('/api/v1/commerce/cart/discount', data: {'code': code});
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+    final response = await _dio.post('/api/v1/commerce/cart/discounts', data: {'code': code});
+    return Cart.fromJson(_unwrap(response.data));
   }
 
-  Future<Cart> removeDiscount() async {
-    final response = await _dio.delete('/api/v1/commerce/cart/discount');
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+  Future<Cart> removeDiscount(String code) async {
+    final response = await _dio.delete('/api/v1/commerce/cart/discounts/$code');
+    return Cart.fromJson(_unwrap(response.data));
   }
 
-  Future<List<ShippingOption>> getShippingOptions(String zipCode) async {
-    final response = await _dio.get('/api/v1/commerce/cart/shipping', queryParameters: {'zipCode': zipCode});
-    final items = response.data as List<dynamic>? ?? [];
-    return items.map((e) => ShippingOption.fromJson(e as Map<String, dynamic>)).toList();
+  Future<List<DeliveryShippingSplit>> getDeliveryShippingOptions() async {
+    final response = await _dio.get('/api/v1/commerce/cart/delivery-shipping-options');
+    final data = response.data;
+    final items = (data is Map ? data['data'] : data) as List<dynamic>? ?? [];
+    return items
+        .map((e) => DeliveryShippingSplit.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<Cart> selectShipping(String optionId) async {
-    final response = await _dio.post('/api/v1/commerce/cart/shipping', data: {'optionId': optionId});
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+  Future<Cart> setDeliveryShipping(String deliveryId, {
+    required String provider,
+    required String serviceCode,
+    required String name,
+    String? company,
+    required int priceInCents,
+    required int deliveryDays,
+    String? providerData,
+    bool insuranceIncluded = true,
+  }) async {
+    final response = await _dio.patch(
+      '/api/v1/commerce/cart/deliveries/$deliveryId/shipping',
+      data: {
+        'provider': provider,
+        'serviceCode': serviceCode,
+        'name': name,
+        'company': company,
+        'priceInCents': priceInCents,
+        'deliveryDays': deliveryDays,
+        'providerData': providerData,
+        'insuranceIncluded': insuranceIncluded,
+      },
+    );
+    return Cart.fromJson(_unwrap(response.data));
   }
 
-  Future<Cart> selectPayment(String method, Map<String, dynamic> data) async {
-    final response = await _dio.post('/api/v1/commerce/cart/payment', data: {'method': method, ...data});
-    return Cart.fromJson(response.data as Map<String, dynamic>);
+  Future<Cart> selectShippingMethod(String methodId) async {
+    final response = await _dio.post('/api/v1/commerce/cart/shipping-method', data: {'shippingMethodId': methodId});
+    return Cart.fromJson(_unwrap(response.data));
+  }
+
+  Future<Cart> selectPaymentMethod(String methodId) async {
+    final response = await _dio.post('/api/v1/commerce/cart/payment-method', data: {'paymentMethodId': methodId});
+    return Cart.fromJson(_unwrap(response.data));
   }
 
   Future<Order> placeOrder() async {
-    final response = await _dio.post('/api/v1/commerce/orders');
-    return Order.fromJson(response.data as Map<String, dynamic>);
+    final response = await _dio.post('/api/v1/commerce/cart/checkout/place-order');
+    return Order.fromJson(_unwrap(response.data));
   }
 
-  Future<List<Order>> getOrders() async {
-    final response = await _dio.get('/api/v1/commerce/orders');
-    final items = response.data as List<dynamic>? ?? [];
-    return items.map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
+  Future<CustomerOrder> getOrder(String id) async {
+    // Backend has no single-order GET; fetch first page and find by id.
+    final response = await _dio.get('/api/v1/commerce/customer/orders',
+        queryParameters: {'page': 0, 'size': 50});
+    final data = response.data;
+    final items = (data is Map ? data['content'] : data) as List<dynamic>? ?? [];
+    final match = items
+        .map((e) => CustomerOrder.fromJson(e as Map<String, dynamic>))
+        .where((o) => o.id == id)
+        .firstOrNull;
+    return match ?? CustomerOrder.fromJson({'id': id});
   }
 
-  Future<Order> getOrder(String id) async {
-    final response = await _dio.get('/api/v1/commerce/orders/$id');
-    return Order.fromJson(response.data as Map<String, dynamic>);
+  Future<List<CustomerAddress>> listAddresses() async {
+    final response = await _dio.get('/api/v1/commerce/customer/addresses');
+    final raw = response.data;
+    // Unwrap {success, data} envelope if present, same as web's request() helper
+    final items = (raw is Map && raw.containsKey('data') ? raw['data'] : raw) as List<dynamic>? ?? [];
+    return items.map((e) => CustomerAddress.fromJson(e as Map<String, dynamic>)).toList();
   }
 }

@@ -1,0 +1,14 @@
+flutter_native_splash:
+  # White background — tenant branding loads dynamically in the Flutter layer
+  color: "#ffffff"
+  color_dark: "#111827"
+
+  # Replace with the tenant logo at build time (CI pipeline places it here)
+  # image: assets/splash_logo.png
+  # image_dark: assets/splash_logo_dark.png
+
+  android_12:
+    color: "#ffffff"
+    color_dark: "#111827"
+
+  web: false

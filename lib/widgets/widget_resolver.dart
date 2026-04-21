@@ -42,8 +42,13 @@ Widget resolveWidget(
   required StorefrontResolveResponse storefront,
   String? slug,
 }) {
+  // Custom widgets are not supported on mobile — use override if configured
+  if (widget.mobileOverride != null) {
+    return resolveWidget(widget.mobileOverride!, storefront: storefront, slug: slug);
+  }
+
   final cfg = widget.config;
-  final btns = widget.buttons;
+  const btns = <WidgetButton>[];
 
   switch (widget.name) {
     case 'store-header':

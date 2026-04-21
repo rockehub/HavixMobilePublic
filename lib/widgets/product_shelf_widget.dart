@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../core/api/commerce_api.dart';
+import '../core/config/app_config.dart';
 import '../core/models/commerce_models.dart';
 import '../core/models/storefront_models.dart';
 import '../core/store/cart_store.dart';
@@ -63,7 +64,7 @@ class _ProductShelfWidgetState extends State<ProductShelfWidget> {
                     itemBuilder: (context, i) {
                       final p = _products[i];
                       return GestureDetector(
-                        onTap: () => context.go('/product/${p.slug}'),
+                        onTap: () => context.push('/product/${p.slug}'),
                         child: Container(
                           width: 160,
                           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -74,7 +75,7 @@ class _ProductShelfWidgetState extends State<ProductShelfWidget> {
                                 ClipRRect(
                                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                                   child: p.imageUrl != null
-                                      ? CachedNetworkImage(imageUrl: p.imageUrl!, height: 140, width: double.infinity, fit: BoxFit.cover)
+                                      ? CachedNetworkImage(imageUrl: AppConfig.resolveMediaUrl(p.imageUrl!), height: 140, width: double.infinity, fit: BoxFit.cover)
                                       : Container(height: 140, color: Colors.grey[200]),
                                 ),
                                 Padding(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import '../core/api/commerce_api.dart';
+import '../core/helpers/media_image.dart';
 import '../core/models/commerce_models.dart';
 import '../core/models/storefront_models.dart';
 
@@ -23,7 +23,7 @@ class _ProductListingWidgetState extends State<ProductListingWidget> {
   List<ProductSummary> _products = [];
   bool _loading = true;
   bool _loadingMore = false;
-  int _page = 1;
+  int _page = 0;
   String _sort = 'newest';
   bool _hasMore = true;
 
@@ -35,7 +35,7 @@ class _ProductListingWidgetState extends State<ProductListingWidget> {
 
   Future<void> _load({bool reset = false}) async {
     if (reset) {
-      _page = 1;
+      _page = 0;
       _products = [];
       _hasMore = true;
       setState(() => _loading = true);
@@ -95,15 +95,13 @@ class _ProductListingWidgetState extends State<ProductListingWidget> {
               itemBuilder: (context, i) {
                 final p = _products[i];
                 return GestureDetector(
-                  onTap: () => context.go('/product/${p.slug}'),
+                  onTap: () => context.push('/product/${p.slug}'),
                   child: Card(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: p.imageUrl != null
-                              ? CachedNetworkImage(imageUrl: p.imageUrl!, fit: BoxFit.cover, width: double.infinity)
-                              : Container(color: Colors.grey[200]),
+                          child: MediaImage(url: p.imageUrl, fit: BoxFit.cover, width: double.infinity),
                         ),
                         Padding(
                           padding: const EdgeInsets.all(8),

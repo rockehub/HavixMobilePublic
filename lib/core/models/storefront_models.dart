@@ -55,47 +55,16 @@ class StorefrontLogo {
   final String? hdUrl;
   final String? smUrl;
   final String? altText;
+  final String? originalUrl;
 
-  const StorefrontLogo({this.hdUrl, this.smUrl, this.altText});
+  const StorefrontLogo({this.hdUrl, this.smUrl, this.altText, this.originalUrl});
 
   factory StorefrontLogo.fromJson(Map<String, dynamic> json) {
     return StorefrontLogo(
       hdUrl: json['hdUrl'] as String?,
       smUrl: json['smUrl'] as String?,
       altText: json['altText'] as String?,
-    );
-  }
-}
-
-class StorefrontResolveResponse {
-  final String? storeName;
-  final StorefrontTheme? theme;
-  final StorefrontLogo? logo;
-  final String? publicToken;
-  final bool b2bEnabled;
-  final Map<String, dynamic>? settings;
-
-  const StorefrontResolveResponse({
-    this.storeName,
-    this.theme,
-    this.logo,
-    this.publicToken,
-    this.b2bEnabled = false,
-    this.settings,
-  });
-
-  factory StorefrontResolveResponse.fromJson(Map<String, dynamic> json) {
-    return StorefrontResolveResponse(
-      storeName: json['storeName'] as String?,
-      theme: json['theme'] != null
-          ? StorefrontTheme.fromJson(json['theme'] as Map<String, dynamic>)
-          : null,
-      logo: json['logo'] != null
-          ? StorefrontLogo.fromJson(json['logo'] as Map<String, dynamic>)
-          : null,
-      publicToken: json['publicToken'] as String?,
-      b2bEnabled: json['b2bEnabled'] as bool? ?? false,
-      settings: json['settings'] as Map<String, dynamic>?,
+      originalUrl: json['originalUrl'] as String?,
     );
   }
 }
@@ -103,41 +72,48 @@ class StorefrontResolveResponse {
 class StorefrontWidget {
   final String name;
   final Map<String, dynamic> config;
-  final List<WidgetButton> buttons;
   final String? id;
+  final StorefrontWidget? mobileOverride;
 
-  const StorefrontWidget({
-    required this.name,
-    required this.config,
-    required this.buttons,
-    this.id,
-  });
+  const StorefrontWidget({required this.name, required this.config, this.id, this.mobileOverride});
 
   factory StorefrontWidget.fromJson(Map<String, dynamic> json) {
-    final rawButtons = json['buttons'] as List<dynamic>? ?? [];
+    final raw = json['configuration'] ?? json['config'];
+    Map<String, dynamic> cfg = {};
+    if (raw is Map<String, dynamic>) {
+      // Flatten content section into cfg, then re-attach layout/style as sub-maps
+      // so widgets read flat keys (config['title']) while also having config['layout'] and config['style']
+      final content = raw['content'];
+      if (content is Map<String, dynamic>) {
+        cfg = Map<String, dynamic>.from(content);
+        if (raw['layout'] != null) cfg['layout'] = raw['layout'];
+        if (raw['style']  != null) cfg['style']  = raw['style'];
+      } else {
+        cfg = raw;
+      }
+    }
+    StorefrontWidget? mobileOverride;
+    final overrideRaw = json['mobileOverride'];
+    if (overrideRaw is Map<String, dynamic>) {
+      mobileOverride = StorefrontWidget.fromJson(overrideRaw);
+    }
     return StorefrontWidget(
       name: json['name'] as String? ?? '',
-      config: json['config'] as Map<String, dynamic>? ?? {},
-      buttons: rawButtons
-          .map((b) => WidgetButton.fromJson(b as Map<String, dynamic>))
-          .toList(),
+      config: cfg,
       id: json['id'] as String?,
+      mobileOverride: mobileOverride,
     );
   }
 }
 
+// WidgetButton kept for compatibility with widget_resolver usage
 class WidgetButton {
   final String label;
   final String? url;
   final String? variant;
   final String? color;
 
-  const WidgetButton({
-    required this.label,
-    this.url,
-    this.variant,
-    this.color,
-  });
+  const WidgetButton({required this.label, this.url, this.variant, this.color});
 
   factory WidgetButton.fromJson(Map<String, dynamic> json) {
     return WidgetButton(
@@ -168,9 +144,8 @@ class StorefrontColumn {
 
 class StorefrontRow {
   final List<StorefrontColumn> columns;
-  final Map<String, dynamic> config;
 
-  const StorefrontRow({required this.columns, required this.config});
+  const StorefrontRow({required this.columns});
 
   factory StorefrontRow.fromJson(Map<String, dynamic> json) {
     final rawCols = json['columns'] as List<dynamic>? ?? [];
@@ -178,21 +153,40 @@ class StorefrontRow {
       columns: rawCols
           .map((c) => StorefrontColumn.fromJson(c as Map<String, dynamic>))
           .toList(),
-      config: json['config'] as Map<String, dynamic>? ?? {},
     );
   }
 }
 
+// Area supports both flat widgets (layoutTemplate) and rows/columns (page grid)
 class StorefrontArea {
   final String name;
+  final int position;
+  final List<StorefrontWidget> widgets;
   final List<StorefrontRow> rows;
 
-  const StorefrontArea({required this.name, required this.rows});
+  const StorefrontArea({
+    required this.name,
+    required this.position,
+    required this.widgets,
+    required this.rows,
+  });
+
+  List<StorefrontWidget> get allWidgets {
+    if (rows.isNotEmpty) {
+      return rows.expand((r) => r.columns.expand((c) => c.widgets)).toList();
+    }
+    return widgets;
+  }
 
   factory StorefrontArea.fromJson(Map<String, dynamic> json) {
+    final rawWidgets = json['widgets'] as List<dynamic>? ?? [];
     final rawRows = json['rows'] as List<dynamic>? ?? [];
     return StorefrontArea(
       name: json['name'] as String? ?? '',
+      position: json['position'] as int? ?? 0,
+      widgets: rawWidgets
+          .map((w) => StorefrontWidget.fromJson(w as Map<String, dynamic>))
+          .toList(),
       rows: rawRows
           .map((r) => StorefrontRow.fromJson(r as Map<String, dynamic>))
           .toList(),
@@ -201,18 +195,58 @@ class StorefrontArea {
 }
 
 class StorefrontLayoutTemplate {
-  final String name;
   final List<StorefrontArea> areas;
 
-  const StorefrontLayoutTemplate({required this.name, required this.areas});
+  const StorefrontLayoutTemplate({required this.areas});
 
   factory StorefrontLayoutTemplate.fromJson(Map<String, dynamic> json) {
     final rawAreas = json['areas'] as List<dynamic>? ?? [];
     return StorefrontLayoutTemplate(
-      name: json['name'] as String? ?? '',
       areas: rawAreas
           .map((a) => StorefrontArea.fromJson(a as Map<String, dynamic>))
           .toList(),
+    );
+  }
+}
+
+class StorefrontResolveResponse {
+  final String? storeName;
+  final StorefrontTheme? theme;
+  final StorefrontLogo? logo;
+  final String? publicToken;
+  final bool b2bEnabled;
+  final Map<String, dynamic>? settings;
+  final StorefrontLayoutTemplate? layoutTemplate; // header/footer shared areas
+
+  const StorefrontResolveResponse({
+    this.storeName,
+    this.theme,
+    this.logo,
+    this.publicToken,
+    this.b2bEnabled = false,
+    this.settings,
+    this.layoutTemplate,
+  });
+
+  factory StorefrontResolveResponse.fromJson(Map<String, dynamic> json) {
+    // resolve uses "storefrontTheme", not "theme"
+    final themeJson = json['storefrontTheme'] ?? json['theme'];
+    final layoutJson = json['layoutTemplate'];
+
+    return StorefrontResolveResponse(
+      storeName: json['storeName'] as String?,
+      theme: themeJson is Map<String, dynamic>
+          ? StorefrontTheme.fromJson(themeJson)
+          : null,
+      logo: json['logo'] is Map<String, dynamic>
+          ? StorefrontLogo.fromJson(json['logo'] as Map<String, dynamic>)
+          : null,
+      publicToken: json['publicToken'] as String?,
+      b2bEnabled: json['b2bEnabled'] as bool? ?? false,
+      settings: json['settings'] as Map<String, dynamic>?,
+      layoutTemplate: layoutJson is Map<String, dynamic>
+          ? StorefrontLayoutTemplate.fromJson(layoutJson)
+          : null,
     );
   }
 }
@@ -226,8 +260,8 @@ class StorefrontPageSeo {
 
   factory StorefrontPageSeo.fromJson(Map<String, dynamic> json) {
     return StorefrontPageSeo(
-      title: json['title'] as String?,
-      description: json['description'] as String?,
+      title: json['title'] as String? ?? json['metaTitle'] as String?,
+      description: json['description'] as String? ?? json['metaDescription'] as String?,
       ogImage: json['ogImage'] as String?,
     );
   }
@@ -251,16 +285,17 @@ class StorefrontPage {
   });
 
   factory StorefrontPage.fromJson(Map<String, dynamic> json) {
+    final layoutJson = json['publishedLayout'] ?? json['layout'];
+    final seoJson = json['publishedSeo'] ?? json['seo'];
     return StorefrontPage(
       title: json['title'] as String?,
       pageType: json['pageType'] as String?,
       path: json['path'] as String?,
-      layout: json['layout'] != null
-          ? StorefrontLayoutTemplate.fromJson(
-              json['layout'] as Map<String, dynamic>)
+      layout: layoutJson is Map<String, dynamic>
+          ? StorefrontLayoutTemplate.fromJson(layoutJson)
           : null,
-      seo: json['seo'] != null
-          ? StorefrontPageSeo.fromJson(json['seo'] as Map<String, dynamic>)
+      seo: seoJson is Map<String, dynamic>
+          ? StorefrontPageSeo.fromJson(seoJson)
           : null,
       data: json['data'] as Map<String, dynamic>?,
     );

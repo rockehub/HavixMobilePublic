@@ -9,9 +9,20 @@
 #   APP_NAME            e.g. Minha Loja
 #   API_BASE_URL        e.g. https://api.havix.com
 #   TENANT_ID           e.g. 82e25f39-b50a-4d9e-9ece-7ac8c7ff6bcc
+#
+# Optional env vars (branding):
+#   LOGO_URL              Direct URL to tenant logo PNG (falls back to API resolve)
+#   SPLASH_BG_COLOR       Light mode splash background (default: #ffffff)
+#   SPLASH_BG_COLOR_DARK  Dark mode splash background  (default: #111827)
+#   ICON_BG_COLOR         Adaptive icon background     (default: #ffffff)
 
 set -e
 
+# ─── Branding: icon + splash ────────────────────────────────────────────────
+chmod +x scripts/configure_branding.sh
+./scripts/configure_branding.sh
+
+# ─── Build ──────────────────────────────────────────────────────────────────
 flutter build appbundle \
   --dart-define=API_BASE_URL="${API_BASE_URL}" \
   --dart-define=TENANT_ID="${TENANT_ID}" \

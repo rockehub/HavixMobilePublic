@@ -1,0 +1,14 @@
+flutter_launcher_icons:
+  # Source icon: placed by CI pipeline from tenant logo.
+  # Must be >= 1024x1024 PNG with transparent or opaque background.
+  image_path: "assets/icons/app_icon.png"
+
+  android: true
+  ios: true
+  remove_alpha_ios: true
+
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/icons/app_icon_foreground.png"
+
+  web:
+    generate: false

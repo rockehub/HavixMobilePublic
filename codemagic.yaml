@@ -8,20 +8,44 @@ workflows:
     environment:
       flutter: stable
       vars:
-        API_BASE_URL: https://api.havix.com       
-        TENANT_ID: 82e25f39-b50a-4d9e-9ece-7ac8c7ff6bcc          
-        APP_NAME: Havix                    
-        BUNDLE_ID_ANDROID: com.havix.app       
-        BUNDLE_ID_IOS:  com.havix.app            
+        # ── Tenant identity (overridden per-build by the platform) ──────────
+        API_BASE_URL: https://api.havix.com
+        TENANT_ID: 82e25f39-b50a-4d9e-9ece-7ac8c7ff6bcc
+        APP_NAME: Havix
+        BUNDLE_ID_ANDROID: com.havix.app
+        BUNDLE_ID_IOS: com.havix.app
+
+        # ── Branding (overridden per-build by the platform) ─────────────────
+        # LOGO_URL is fetched automatically from the storefront API when empty.
+        # Set it explicitly to skip the API call and speed up the build.
+        LOGO_URL: ""
+        SPLASH_BG_COLOR: "#ffffff"
+        SPLASH_BG_COLOR_DARK: "#111827"
+        ICON_BG_COLOR: "#ffffff"
+
+      # ── Android signing (keystore configured in Codemagic dashboard) ──────
+      android_signing:
+        - havix_keystore
 
     scripts:
-      - name: Get Flutter packages
+      - name: Install dependencies
         script: flutter pub get
+
+      - name: Configure branding (icon + splash)
+        script: |
+          # ImageMagick is available on Codemagic Mac runners
+          chmod +x scripts/configure_branding.sh
+          ./scripts/configure_branding.sh
 
       - name: Build Android .aab
         script: |
-          chmod +x scripts/build_android.sh
-          ./scripts/build_android.sh
+          flutter build appbundle \
+            --dart-define=API_BASE_URL="${API_BASE_URL}" \
+            --dart-define=TENANT_ID="${TENANT_ID}" \
+            --dart-define=APP_NAME="${APP_NAME}" \
+            --dart-define=BUNDLE_ID_ANDROID="${BUNDLE_ID_ANDROID}" \
+            --dart-define=BUNDLE_ID_IOS="${BUNDLE_ID_IOS}" \
+            --release
 
     artifacts:
       - build/app/outputs/bundle/release/app-release.aab
@@ -38,32 +62,54 @@ workflows:
   ios-tenant-build:
     name: iOS — Tenant Build
     max_build_duration: 60
-    instance_type: mac_mini_m2  # macOS obrigatório para iOS
+    instance_type: mac_mini_m2
 
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
       vars:
+        # ── Tenant identity ─────────────────────────────────────────────────
         API_BASE_URL: https://api.havix.com
         TENANT_ID: 82e25f39-b50a-4d9e-9ece-7ac8c7ff6bcc
         APP_NAME: Havix
-        BUNDLE_ID_ANDROID: com.cliente.loja
-        BUNDLE_ID_IOS: com.cliente.loja
-        APPLE_TEAM_ID: COLE_O_TEAM_ID_AQUI       # do Apple Developer Account
-      # Certificados iOS — configurados no painel do Codemagic
+        BUNDLE_ID_ANDROID: com.havix.app
+        BUNDLE_ID_IOS: com.havix.app
+        APPLE_TEAM_ID: COLE_O_TEAM_ID_AQUI
+
+        # ── Branding ────────────────────────────────────────────────────────
+        LOGO_URL: ""
+        SPLASH_BG_COLOR: "#ffffff"
+        SPLASH_BG_COLOR_DARK: "#111827"
+        ICON_BG_COLOR: "#ffffff"
+
       ios_signing:
         distribution_type: app_store
         bundle_identifier: $BUNDLE_ID_IOS
 
     scripts:
-      - name: Get Flutter packages
+      - name: Install dependencies
         script: flutter pub get
+
+      - name: Configure branding (icon + splash)
+        script: |
+          chmod +x scripts/configure_branding.sh
+          ./scripts/configure_branding.sh
+
+      - name: Configure iOS bundle ID and display name
+        script: |
+          chmod +x scripts/configure_ios.sh
+          ./scripts/configure_ios.sh
 
       - name: Build iOS .ipa
         script: |
-          chmod +x scripts/configure_ios.sh scripts/build_ios.sh
-          ./scripts/build_ios.sh
+          flutter build ipa \
+            --dart-define=API_BASE_URL="${API_BASE_URL}" \
+            --dart-define=TENANT_ID="${TENANT_ID}" \
+            --dart-define=APP_NAME="${APP_NAME}" \
+            --dart-define=BUNDLE_ID_ANDROID="${BUNDLE_ID_ANDROID:-$BUNDLE_ID_IOS}" \
+            --dart-define=BUNDLE_ID_IOS="${BUNDLE_ID_IOS}" \
+            --release
 
     artifacts:
       - build/ios/ipa/*.ipa

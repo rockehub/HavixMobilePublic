@@ -8,10 +8,14 @@
 
 set -e
 
-# Step 1: generate TenantConfig.xcconfig
+# Step 1: branding (icon + splash)
+chmod +x scripts/configure_branding.sh
+./scripts/configure_branding.sh
+
+# Step 2: generate TenantConfig.xcconfig
 ./scripts/configure_ios.sh
 
-# Step 2: build ipa
+# Step 3: build ipa
 flutter build ipa \
   --dart-define=API_BASE_URL="${API_BASE_URL}" \
   --dart-define=TENANT_ID="${TENANT_ID}" \

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../core/api/commerce_api.dart';
+import '../core/api/auth_api.dart';
 import '../core/models/commerce_models.dart';
 import '../core/models/storefront_models.dart';
 import '../core/store/cart_store.dart';
@@ -17,8 +17,8 @@ class B2bReorderWidget extends StatefulWidget {
 }
 
 class _B2bReorderWidgetState extends State<B2bReorderWidget> {
-  final _api = CommerceApi();
-  List<Order> _orders = [];
+  final _api = AuthApi();
+  List<CustomerOrder> _orders = [];
   bool _loading = true;
   final Set<String> _reordering = {};
 
@@ -30,7 +30,7 @@ class _B2bReorderWidgetState extends State<B2bReorderWidget> {
 
   Future<void> _load() async {
     if (!widget.storefront.b2bEnabled) { setState(() => _loading = false); return; }
-    try { _orders = await _api.getOrders(); } catch (_) {}
+    try { _orders = await _api.listOrders(); } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
 
@@ -55,23 +55,22 @@ class _B2bReorderWidgetState extends State<B2bReorderWidget> {
             ..._orders.map((order) => Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: ListTile(
-                title: Text('Pedido #${order.id.substring(0, 8)}'),
-                subtitle: Text('${order.lines.length} item(s) — ${fmt.format(order.total)}'),
+                title: Text('Pedido #${order.number}'),
+                subtitle: Text('${order.itemsCount} item(s) — ${fmt.format(order.total)}'),
                 trailing: _reordering.contains(order.id)
                     ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                     : ElevatedButton(
                         onPressed: () async {
                           setState(() => _reordering.add(order.id));
-                          final cart = context.read<CartStore>();
-                          for (final line in order.lines) {
-                            if (line.variantId != null) {
-                              await cart.addToCart(line.variantId!, line.quantity);
+                          try {
+                            final items = await _api.getOrderItems(order.id);
+                            final cart = context.read<CartStore>();
+                            for (final item in items) {
+                              await cart.addToCart(item.variantId, 1, productId: item.productId);
                             }
-                          }
-                          if (mounted) {
-                            setState(() => _reordering.remove(order.id));
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Itens adicionados ao carrinho!')));
-                          }
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Itens adicionados ao carrinho!')));
+                          } catch (_) {}
+                          if (mounted) setState(() => _reordering.remove(order.id));
                         },
                         child: const Text('Repetir'),
                       ),

@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../core/api/commerce_api.dart';
+import '../core/config/app_config.dart';
 import '../core/models/commerce_models.dart';
 import '../core/models/storefront_models.dart';
 
@@ -71,14 +72,14 @@ class _SearchResultsWidgetState extends State<SearchResultsWidget> {
               itemBuilder: (context, i) {
                 final p = _products[i];
                 return GestureDetector(
-                  onTap: () => context.go('/product/${p.slug}'),
+                  onTap: () => context.push('/product/${p.slug}'),
                   child: Card(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: p.imageUrl != null
-                              ? CachedNetworkImage(imageUrl: p.imageUrl!, fit: BoxFit.cover, width: double.infinity)
+                              ? CachedNetworkImage(imageUrl: AppConfig.resolveMediaUrl(p.imageUrl!), fit: BoxFit.cover, width: double.infinity)
                               : Container(color: Colors.grey[200]),
                         ),
                         Padding(

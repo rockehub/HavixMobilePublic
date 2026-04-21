@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../core/api/storefront_api.dart';
 import 'resolved_page.dart';
 
@@ -10,12 +11,32 @@ class ProductScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final api = StorefrontApi();
     return Scaffold(
-      body: SafeArea(
-        child: PageLoader(
-          pageType: 'PRODUCT',
-          slug: slug,
-          loader: () => api.getProductPage(slug),
-        ),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: false,
+            floating: true,
+            snap: true,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/');
+                }
+              },
+            ),
+          ),
+          SliverFillRemaining(
+            hasScrollBody: true,
+            child: PageLoader(
+              pageType: 'PRODUCT',
+              slug: slug,
+              loader: () => api.getProductPage(slug),
+            ),
+          ),
+        ],
       ),
     );
   }

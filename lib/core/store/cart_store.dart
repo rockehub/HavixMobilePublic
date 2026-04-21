@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../api/commerce_api.dart';
 import '../models/commerce_models.dart';
@@ -7,9 +8,13 @@ class CartStore extends ChangeNotifier {
 
   Cart cart = Cart.empty();
   bool isLoading = false;
-  List<ShippingOption> shippingOptions = [];
 
   int get itemCount => cart.lines.fold(0, (s, l) => s + l.quantity);
+
+  void clear() {
+    cart = Cart.empty();
+    notifyListeners();
+  }
 
   Future<void> fetchCart() async {
     isLoading = true;
@@ -21,14 +26,24 @@ class CartStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addToCart(String variantId, int qty) async {
+  String? _lastError;
+  String? get lastError => _lastError;
+
+  Future<bool> addToCart(String? variantId, int qty, {String? productId}) async {
     isLoading = true;
+    _lastError = null;
     notifyListeners();
     try {
-      cart = await _api.addToCart(variantId, qty);
-    } catch (_) {}
-    isLoading = false;
-    notifyListeners();
+      cart = await _api.addToCart(variantId, qty, productId: productId);
+      isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _lastError = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<void> updateItem(String lineId, int qty) async {
@@ -56,29 +71,24 @@ class CartStore extends ChangeNotifier {
   }
 
   Future<void> removeDiscount() async {
+    final code = cart.discountCode;
+    if (code == null || code.isEmpty) return;
     try {
-      cart = await _api.removeDiscount();
+      cart = await _api.removeDiscount(code);
       notifyListeners();
     } catch (_) {}
   }
 
-  Future<void> fetchShippingOptions(String zipCode) async {
+  Future<void> selectShipping(String methodId) async {
     try {
-      shippingOptions = await _api.getShippingOptions(zipCode);
+      cart = await _api.selectShippingMethod(methodId);
       notifyListeners();
     } catch (_) {}
   }
 
-  Future<void> selectShipping(String optionId) async {
+  Future<void> selectPayment(String methodId, [Map<String, dynamic>? data]) async {
     try {
-      cart = await _api.selectShipping(optionId);
-      notifyListeners();
-    } catch (_) {}
-  }
-
-  Future<void> selectPayment(String method, Map<String, dynamic> data) async {
-    try {
-      cart = await _api.selectPayment(method, data);
+      cart = await _api.selectPaymentMethod(methodId);
       notifyListeners();
     } catch (_) {}
   }
@@ -88,11 +98,15 @@ class CartStore extends ChangeNotifier {
     notifyListeners();
     try {
       final order = await _api.placeOrder();
+      if (kDebugMode) {
+        debugPrint('[CartStore] placeOrder ok id=${order.id} action=${order.resolvedPaymentAction} link=${order.paymentLink}');
+      }
       cart = Cart.empty();
       isLoading = false;
       notifyListeners();
       return order;
-    } catch (_) {
+    } catch (e) {
+      if (kDebugMode) debugPrint('[CartStore] placeOrder error: $e');
       isLoading = false;
       notifyListeners();
       return null;
