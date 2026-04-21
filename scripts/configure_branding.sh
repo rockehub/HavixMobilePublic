@@ -4,6 +4,7 @@
 # then runs flutter_launcher_icons and flutter_native_splash:create.
 #
 # Must run AFTER `flutter pub get` and BEFORE `flutter build`.
+# Failures in this step are non-fatal: the build continues with a placeholder icon.
 #
 # Required env vars (at least one of):
 #   LOGO_URL        Direct URL to the tenant logo (PNG/JPEG recommended, min 512x512)
@@ -15,7 +16,7 @@
 #   SPLASH_BG_COLOR_DARK   Native splash background — dark mode  (default: #111827)
 #   ICON_BG_COLOR          Adaptive icon background color       (default: #ffffff)
 
-set -e
+# NOTE: no set -e — branding failures are non-fatal; build proceeds with placeholder
 
 LOGO_URL="${LOGO_URL:-}"
 API_BASE_URL="${API_BASE_URL:-}"
@@ -29,10 +30,35 @@ SPLASH_DIR="assets/splash"
 
 mkdir -p "$ICONS_DIR" "$SPLASH_DIR"
 
+# ─── Helper: skip branding gracefully ────────────────────────────────────────
+skip_branding() {
+  echo "⚠️  $1"
+  echo "    Branding skipped — app will use placeholder icon and neutral splash."
+  # Still generate splash/icons without a logo image so the build doesn't fail
+  generate_splash_and_icons_without_logo
+  exit 0
+}
+
+generate_splash_and_icons_without_logo() {
+  echo "→ Generating splash (no logo — color-only)..."
+  cat > flutter_native_splash.yaml <<EOF
+flutter_native_splash:
+  color: "$SPLASH_BG"
+  color_dark: "$SPLASH_BG_DARK"
+
+  android_12:
+    color: "$SPLASH_BG"
+    color_dark: "$SPLASH_BG_DARK"
+
+  web: false
+EOF
+  dart run flutter_native_splash:create 2>/dev/null || true
+}
+
 # ─── 1. Resolve logo URL from storefront API if not explicitly provided ───────
 if [ -z "$LOGO_URL" ] && [ -n "$API_BASE_URL" ] && [ -n "$TENANT_ID" ]; then
   echo "→ LOGO_URL not set — fetching from storefront resolve..."
-  RESOLVE_JSON=$(curl -sf \
+  RESOLVE_JSON=$(curl -sf --max-time 10 \
     -H "X-Tenant-Id: $TENANT_ID" \
     "$API_BASE_URL/api/v1/storefront/resolve") || true
 
@@ -43,58 +69,59 @@ data = json.loads(sys.argv[1])
 logo = data.get('logo') or {}
 print(logo.get('hdUrl') or logo.get('originalUrl') or logo.get('smUrl') or '')
 PY
-)
+) || true
   fi
 fi
 
-# ─── 2. Download logo ─────────────────────────────────────────────────────────
+# ─── 2. Validate logo URL ─────────────────────────────────────────────────────
 if [ -z "$LOGO_URL" ]; then
-  echo "⚠️  No LOGO_URL resolved — branding step skipped. App will use default placeholder icon."
-  exit 0
+  skip_branding "No LOGO_URL resolved (API_BASE_URL=${API_BASE_URL:-not set})."
 fi
 
-echo "→ Downloading logo: $LOGO_URL"
-curl -fsSL "$LOGO_URL" -o "$ICONS_DIR/raw_logo.png"
-echo "✅ Logo downloaded"
+# Reject localhost/127.0.0.1 — not reachable from CI runner
+if echo "$LOGO_URL" | grep -qE '(localhost|127\.0\.0\.1|0\.0\.0\.0)'; then
+  skip_branding "LOGO_URL points to localhost ('$LOGO_URL') — not reachable from CI. Set APP_BASE_URL to the public API URL in your server config."
+fi
 
-# ─── 3. Process with ImageMagick ──────────────────────────────────────────────
+# ─── 3. Download logo ─────────────────────────────────────────────────────────
+echo "→ Downloading logo: $LOGO_URL"
+if ! curl -fsSL --max-time 30 "$LOGO_URL" -o "$ICONS_DIR/raw_logo.png"; then
+  skip_branding "Failed to download logo from '$LOGO_URL'."
+fi
+
+# Sanity-check: file must be at least 1 KB
+LOGO_SIZE=$(wc -c < "$ICONS_DIR/raw_logo.png" 2>/dev/null || echo 0)
+if [ "$LOGO_SIZE" -lt 1024 ]; then
+  skip_branding "Downloaded logo is too small (${LOGO_SIZE} bytes) — likely not a valid image."
+fi
+
+echo "✅ Logo downloaded (${LOGO_SIZE} bytes)"
+
+# ─── 4. Process with ImageMagick ──────────────────────────────────────────────
 if command -v convert &>/dev/null; then
   echo "→ Processing icon assets with ImageMagick..."
 
-  # App icon: 1024x1024, logo centered with white padding
   convert "$ICONS_DIR/raw_logo.png" \
-    -background "$ICON_BG" \
-    -gravity center \
-    -resize 820x820 \
-    -extent 1024x1024 \
-    "$ICONS_DIR/app_icon.png"
+    -background "$ICON_BG" -gravity center -resize 820x820 -extent 1024x1024 \
+    "$ICONS_DIR/app_icon.png" 2>/dev/null || cp "$ICONS_DIR/raw_logo.png" "$ICONS_DIR/app_icon.png"
 
-  # Adaptive icon foreground: transparent background, logo centered
   convert "$ICONS_DIR/raw_logo.png" \
-    -background none \
-    -gravity center \
-    -resize 640x640 \
-    -extent 1024x1024 \
-    "$ICONS_DIR/app_icon_foreground.png"
+    -background none -gravity center -resize 640x640 -extent 1024x1024 \
+    "$ICONS_DIR/app_icon_foreground.png" 2>/dev/null || cp "$ICONS_DIR/raw_logo.png" "$ICONS_DIR/app_icon_foreground.png"
 
-  # Native splash logo: 300x300 transparent, centered
   convert "$ICONS_DIR/raw_logo.png" \
-    -background none \
-    -gravity center \
-    -resize 300x300 \
-    -extent 300x300 \
-    "$SPLASH_DIR/splash_logo.png"
+    -background none -gravity center -resize 300x300 -extent 300x300 \
+    "$SPLASH_DIR/splash_logo.png" 2>/dev/null || cp "$ICONS_DIR/raw_logo.png" "$SPLASH_DIR/splash_logo.png"
 
-  echo "✅ Icon assets generated with ImageMagick"
+  echo "✅ Icon assets generated"
 else
-  echo "⚠️  ImageMagick (convert) not found — copying raw logo without processing"
-  echo "    Install imagemagick in your CI image for best results."
+  echo "⚠️  ImageMagick not found — using raw logo without resizing"
   cp "$ICONS_DIR/raw_logo.png" "$ICONS_DIR/app_icon.png"
   cp "$ICONS_DIR/raw_logo.png" "$ICONS_DIR/app_icon_foreground.png"
   cp "$ICONS_DIR/raw_logo.png" "$SPLASH_DIR/splash_logo.png"
 fi
 
-# ─── 4. Rewrite flutter_native_splash.yaml with tenant colors + logo ──────────
+# ─── 5. Write flutter_native_splash.yaml ─────────────────────────────────────
 echo "→ Writing flutter_native_splash.yaml..."
 cat > flutter_native_splash.yaml <<EOF
 flutter_native_splash:
@@ -111,9 +138,8 @@ flutter_native_splash:
 
   web: false
 EOF
-echo "✅ flutter_native_splash.yaml updated"
 
-# ─── 5. Rewrite flutter_launcher_icons.yaml ───────────────────────────────────
+# ─── 6. Write flutter_launcher_icons.yaml ────────────────────────────────────
 echo "→ Writing flutter_launcher_icons.yaml..."
 cat > flutter_launcher_icons.yaml <<EOF
 flutter_launcher_icons:
@@ -126,14 +152,9 @@ flutter_launcher_icons:
   web:
     generate: false
 EOF
-echo "✅ flutter_launcher_icons.yaml updated"
 
-# ─── 6. Generate native splash ────────────────────────────────────────────────
-echo "→ Generating native splash..."
-dart run flutter_native_splash:create
-echo "✅ Native splash generated"
+# ─── 7. Generate native splash + launcher icons ───────────────────────────────
+dart run flutter_native_splash:create || echo "⚠️  flutter_native_splash:create failed — continuing"
+dart run flutter_launcher_icons       || echo "⚠️  flutter_launcher_icons failed — continuing"
 
-# ─── 7. Generate launcher icons ───────────────────────────────────────────────
-echo "→ Generating launcher icons..."
-dart run flutter_launcher_icons
-echo "✅ Launcher icons generated"
+echo "✅ Branding configured"
