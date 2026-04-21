@@ -15,10 +15,7 @@ workflows:
         BUNDLE_ID_ANDROID: com.havix.app
         BUNDLE_ID_IOS: com.havix.app
 
-        # ── Branding (overridden per-build by the platform) ─────────────────
-        # LOGO_URL is fetched automatically from the storefront API when empty.
-        # Set it explicitly to skip the API call and speed up the build.
-        LOGO_URL: ""
+        # ── Branding defaults (LOGO_URL is always injected per-build by the platform) ──
         SPLASH_BG_COLOR: "#ffffff"
         SPLASH_BG_COLOR_DARK: "#111827"
         ICON_BG_COLOR: "#ffffff"
@@ -77,8 +74,7 @@ workflows:
         BUNDLE_ID_IOS: com.havix.app
         APPLE_TEAM_ID: COLE_O_TEAM_ID_AQUI
 
-        # ── Branding ────────────────────────────────────────────────────────
-        LOGO_URL: ""
+        # ── Branding defaults (LOGO_URL is always injected per-build by the platform) ──
         SPLASH_BG_COLOR: "#ffffff"
         SPLASH_BG_COLOR_DARK: "#111827"
         ICON_BG_COLOR: "#ffffff"
