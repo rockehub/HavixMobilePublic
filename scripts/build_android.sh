@@ -27,6 +27,23 @@ if [ -n "${KEYSTORE_BASE64:-}" ]; then
   echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
   echo "✅ Keystore written to $KEYSTORE_FILE"
 
+  # Decrypt keystore password — was AES-256-CBC-PBKDF2 encrypted by the backend.
+  # KEYSTORE_ENCRYPTION_KEY must be set as an encrypted variable in the Codemagic dashboard.
+  if [ -n "${KEYSTORE_ENCRYPTION_KEY:-}" ]; then
+    KEYSTORE_PASSWORD=$(echo "${KEYSTORE_PASSWORD_ENC}" | \
+      openssl enc -aes-256-cbc -pbkdf2 -iter 10000 -a -d \
+      -pass pass:"${KEYSTORE_ENCRYPTION_KEY}" 2>/dev/null)
+    if [ -z "$KEYSTORE_PASSWORD" ]; then
+      echo "❌ Failed to decrypt KEYSTORE_PASSWORD_ENC — check that KEYSTORE_ENCRYPTION_KEY matches the backend."
+      exit 1
+    fi
+    echo "✅ Keystore password decrypted"
+  else
+    # Dev mode: no encryption key configured, password sent as-is
+    KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD_ENC:-}"
+    echo "⚠️  KEYSTORE_ENCRYPTION_KEY not set — using password as plain text (dev mode only)"
+  fi
+
   # Write key.properties for Gradle to pick up
   cat > android/key.properties <<EOF
 storePassword=${KEYSTORE_PASSWORD}

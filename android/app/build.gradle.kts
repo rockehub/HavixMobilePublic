@@ -38,8 +38,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    kotlinOptions {
+        @Suppress("DEPRECATION")
+        jvmTarget = "17"
     }
 
     signingConfigs {

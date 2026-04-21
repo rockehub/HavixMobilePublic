@@ -19,6 +19,9 @@ workflows:
         SPLASH_BG_COLOR: "#ffffff"
         SPLASH_BG_COLOR_DARK: "#111827"
         ICON_BG_COLOR: "#ffffff"
+        # ── KEYSTORE_ENCRYPTION_KEY: set this ONCE in Codemagic dashboard as an ──────
+        # ── encrypted variable. Must match CODEMAGIC_BUILD_ENCRYPTION_KEY in    ──────
+        # ── hermesV2 application.yml. Never put it here in plain text.          ──────
 
     scripts:
       - name: Install dependencies
