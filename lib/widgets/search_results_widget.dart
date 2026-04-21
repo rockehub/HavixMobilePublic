@@ -34,7 +34,7 @@ class _SearchResultsWidgetState extends State<SearchResultsWidget> {
   Future<void> _search() async {
     setState(() => _loading = true);
     try {
-      _products = await _api.getProducts(search: _controller.text);
+      _products = await _api.searchProducts(q: _controller.text);
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }

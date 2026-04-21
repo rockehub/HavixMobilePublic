@@ -41,6 +41,53 @@ class CommerceApi {
     return items.map((e) => ProductSummary.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  Future<List<ProductSummary>> searchProducts({
+    required String q,
+    List<String>? categoryIds,
+    int? priceMin,
+    int? priceMax,
+    bool? inStock,
+    String sort = 'relevance',
+    int page = 0,
+    int size = 20,
+  }) async {
+    final params = <String, dynamic>{
+      'q': q,
+      'sort': sort,
+      'page': page,
+      'size': size,
+    };
+    if (categoryIds != null) {
+      for (final id in categoryIds) {
+        params['categoryIds'] = id;
+      }
+    }
+    if (priceMin != null) params['priceMin'] = priceMin;
+    if (priceMax != null) params['priceMax'] = priceMax;
+    if (inStock == true) params['inStock'] = 'true';
+
+    final response = await _dio.get('/api/v1/commerce/products/search', queryParameters: params);
+    final data = response.data;
+    // Search endpoint returns { hits: [...], total, page, ... }
+    final items = (data is Map ? data['hits'] : data) as List<dynamic>? ?? [];
+    return items.map((e) {
+      final hit = e as Map<String, dynamic>;
+      // Search hits have price as plain int (cents) and thumbnailUrl instead of mainImageSet
+      return ProductSummary(
+        id: hit['id']?.toString() ?? '',
+        name: hit['name'] as String? ?? '',
+        slug: hit['slug'] as String? ?? '',
+        imageUrl: hit['thumbnailUrl'] as String?,
+        price: ((hit['price'] as num?) ?? 0) / 100.0,
+        compareAtPrice: hit['compareAtPrice'] != null
+            ? ((hit['compareAtPrice'] as num) / 100.0)
+            : null,
+        inStock: hit['inStock'] as bool? ?? true,
+        rating: (hit['rating'] as num?)?.toDouble(),
+      );
+    }).toList();
+  }
+
   Future<ProductDetail> getProduct(String slug) async {
     final response = await _dio.get('/api/v1/commerce/products/$slug');
     return ProductDetail.fromJson(response.data as Map<String, dynamic>);
