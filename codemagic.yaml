@@ -27,24 +27,14 @@ workflows:
       - name: Install dependencies
         script: flutter pub get
 
-      - name: Configure branding (icon + splash)
+      - name: Build Android (.aab + .apk)
         script: |
-          # ImageMagick is available on Codemagic Mac runners
-          chmod +x scripts/configure_branding.sh
-          ./scripts/configure_branding.sh
-
-      - name: Build Android .aab
-        script: |
-          flutter build appbundle \
-            --dart-define=API_BASE_URL="${API_BASE_URL}" \
-            --dart-define=TENANT_ID="${TENANT_ID}" \
-            --dart-define=APP_NAME="${APP_NAME}" \
-            --dart-define=BUNDLE_ID_ANDROID="${BUNDLE_ID_ANDROID}" \
-            --dart-define=BUNDLE_ID_IOS="${BUNDLE_ID_IOS}" \
-            --release
+          chmod +x scripts/build_android.sh
+          ./scripts/build_android.sh
 
     artifacts:
       - build/app/outputs/bundle/release/app-release.aab
+      - build/app/outputs/flutter-apk/app-release.apk
 
     publishing:
       email:
