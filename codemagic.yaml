@@ -20,10 +20,6 @@ workflows:
         SPLASH_BG_COLOR_DARK: "#111827"
         ICON_BG_COLOR: "#ffffff"
 
-      # ── Android signing (keystore configured in Codemagic dashboard) ──────
-      android_signing:
-        - havix_keystore
-
     scripts:
       - name: Install dependencies
         script: flutter pub get
